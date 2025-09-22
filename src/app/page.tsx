@@ -81,7 +81,7 @@ export default function App() {
 
 
   useEffect(() => {
-    wsRef.current = new WebSocket("ws://127.0.0.1:8000/ws/conversation");
+    wsRef.current = new WebSocket("wss://avatar.wellbands.com/ws/conversation");
 
     wsRef.current.onmessage = async (ev) => {
       const data = JSON.parse(ev.data);
@@ -169,7 +169,37 @@ export default function App() {
     let speaking = false;
     let silenceTimer: ReturnType<typeof setTimeout> | null = null;
     const ctx = new AudioContext();
-    const stopVad = vad(ctx, stream, {
+    // const stopVad = vad(ctx, stream, {
+    //   onUpdate: (val: number) => {
+    //     const level = val * 100;
+    //     if (level > 40) {
+    //       if (!speaking) {
+    //         speaking = true;
+    //         chunks.length = 0;
+    //         mr.start();
+    //       }
+    //       if (silenceTimer) {
+    //         clearTimeout(silenceTimer);
+    //         silenceTimer = null;
+    //       }
+    //     } else if (speaking && !silenceTimer) {
+    //       silenceTimer = setTimeout(() => {
+    //         speaking = false;
+    //         try {
+    //           mr.state !== "inactive" && mr.stop();
+    //         } catch {}
+    //       }, 1600);
+    //     }
+    //   },
+    // });
+    // vadStopRef.current = () => {
+    //   try {
+    //     stopVad();
+    //     ctx.close();
+    //   } catch {}
+    // };
+    // setup vad
+    const vadControl = vad(ctx, stream, {
       onUpdate: (val: number) => {
         const level = val * 100;
         if (level > 40) {
@@ -192,12 +222,15 @@ export default function App() {
         }
       },
     });
+
+    // save cleanup function
     vadStopRef.current = () => {
       try {
-        stopVad.disconnect();  // or stopVad.destroy()
+        vadControl.destroy();   // ✅ instead of stopVad()
         ctx.close();
       } catch {}
     };
+
   };
 
   const resetAll = () => {
