@@ -260,11 +260,11 @@ export default function App() {
 
       <div className="flex flex-col items-center mb-4 justify-center w-full mt-10">
         {showIdle ? (
-          <img src={idleImage} alt="Idle Avatar" width={900} style={{ borderRadius: 12, marginBottom: 20 }} />
+          <img src={idleImage} alt="Idle Avatar" width={400} style={{ borderRadius: 12, marginBottom: 20 }} />
         ) : (
           <video
             ref={videoRef}
-            width={900}
+            width={400}
             muted
             playsInline
             preload="auto"
