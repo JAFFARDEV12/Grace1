@@ -301,7 +301,7 @@ export default function App() {
           <FaMicrophone size={30} color="white" />
         </button>
 
-        <button
+        {/* <button
           onClick={resetAll}
           title="Reset"
           style={{
@@ -316,7 +316,7 @@ export default function App() {
           onMouseLeave={(e) => (e.currentTarget.style.background = "#2196f3")}
         >
           <FaSync size={25} color="white" />
-        </button>
+        </button> */}
       </div>  
       
       
