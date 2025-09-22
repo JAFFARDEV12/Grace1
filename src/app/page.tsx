@@ -6,6 +6,9 @@ import vad from "voice-activity-detection";
 export default function App() {
   const [messages, setMessages] = useState<string[]>([]);
   const [micReady, setMicReady] = useState(true);
+  const [volume, setVolume] = useState(0);
+  const [listening, setListening] = useState(false);
+
   const wsRef = useRef<WebSocket | null>(null);
 
   // avatar & audio
@@ -136,9 +139,23 @@ export default function App() {
   }, []);
 
   // mic / utterance with VAD
-  const startUtterance = async () => {
-    if (!micReady) return;
+  const toggleMic = async () => {
+    if (listening) {
+      // Stop listening completely
+      try {
+        mediaRecorderRef.current?.state !== "inactive" && mediaRecorderRef.current?.stop();
+      } catch {}
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      vadStopRef.current?.();
+      vadStopRef.current = null;
+      setListening(false);
+      setMicReady(true);
+      return;
+    }
+
+    // Start listening
     setMicReady(false);
+    setListening(true);
 
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     streamRef.current = stream;
@@ -146,92 +163,70 @@ export default function App() {
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
       ? "audio/webm;codecs=opus"
       : "audio/webm";
-    const mr = new MediaRecorder(stream, { mimeType });
-    mediaRecorderRef.current = mr;
 
-    const chunks: Blob[] = [];
-    mr.ondataavailable = (e) => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
-    mr.onstop = () => {
-      const blob = new Blob(chunks, { type: "audio/webm" });
-      blob.arrayBuffer().then((buf) => wsRef.current?.send(buf));
+    let mr: MediaRecorder | null = null;
+    let chunks: Blob[] = [];
 
-      // teardown mic
-      stream.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-      mediaRecorderRef.current = null;
-      vadStopRef.current?.();
-      vadStopRef.current = null;
-      setMicReady(true);
+    const startRecorder = () => {
+      chunks = [];
+      mr = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mr;
+
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      mr.onstop = () => {
+        if (chunks.length > 0) {
+          const blob = new Blob(chunks, { type: "audio/webm" });
+          blob.arrayBuffer().then((buf) => wsRef.current?.send(buf));
+        }
+      };
+
+      mr.start();
     };
 
     let speaking = false;
     let silenceTimer: ReturnType<typeof setTimeout> | null = null;
     const ctx = new AudioContext();
-    // const stopVad = vad(ctx, stream, {
-    //   onUpdate: (val: number) => {
-    //     const level = val * 100;
-    //     if (level > 40) {
-    //       if (!speaking) {
-    //         speaking = true;
-    //         chunks.length = 0;
-    //         mr.start();
-    //       }
-    //       if (silenceTimer) {
-    //         clearTimeout(silenceTimer);
-    //         silenceTimer = null;
-    //       }
-    //     } else if (speaking && !silenceTimer) {
-    //       silenceTimer = setTimeout(() => {
-    //         speaking = false;
-    //         try {
-    //           mr.state !== "inactive" && mr.stop();
-    //         } catch {}
-    //       }, 1600);
-    //     }
-    //   },
-    // });
-    // vadStopRef.current = () => {
-    //   try {
-    //     stopVad();
-    //     ctx.close();
-    //   } catch {}
-    // };
-    // setup vad
+
     const vadControl = vad(ctx, stream, {
       onUpdate: (val: number) => {
         const level = val * 100;
+        setVolume(level);
+
         if (level > 40) {
+          // 🎤 Start talking
           if (!speaking) {
             speaking = true;
-            chunks.length = 0;
-            mr.start();
+            startRecorder();
           }
           if (silenceTimer) {
             clearTimeout(silenceTimer);
             silenceTimer = null;
           }
         } else if (speaking && !silenceTimer) {
+          // Silence detected → stop & send after 1.6s
           silenceTimer = setTimeout(() => {
             speaking = false;
             try {
-              mr.state !== "inactive" && mr.stop();
+              mr?.state !== "inactive" && mr?.stop();
             } catch {}
-          }, 1600);
+          }, 1600); // 
         }
       },
     });
 
-    // save cleanup function
     vadStopRef.current = () => {
       try {
-        vadControl.destroy();   // ✅ instead of stopVad()
+        vadControl.destroy();
         ctx.close();
       } catch {}
     };
 
+    setMicReady(true);
   };
+
 
   const resetAll = () => {
     setMessages([]);
@@ -291,19 +286,58 @@ export default function App() {
 
       <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
         <button
-          onClick={startUtterance}
-          disabled={!micReady}
-          style={{ background: micReady ? "#24a148" : "#666", borderRadius: "50%", padding: 20, border: "none" }}
+          onClick={toggleMic}
+          disabled={!micReady && !listening}
+          title={listening ? "Stop" : "Start"}
+          style={{
+            background: listening ? "#e53935" : micReady ? "#24a148" : "#666",
+            borderRadius: "50%",
+            padding: 20,
+            border: "none",
+            cursor: micReady || listening ? "pointer" : "not-allowed",
+            transition: "background 0.3s ease"
+          }}
         >
           <FaMicrophone size={30} color="white" />
         </button>
+
         <button
           onClick={resetAll}
-          style={{ background: "#2196f3", borderRadius: "50%", padding: 20, border: "none" }}
+          title="Reset"
+          style={{
+            background: "#2196f3",
+            borderRadius: "50%",
+            padding: 20,
+            border: "none",
+            cursor: "pointer",
+            transition: "background 0.3s ease"
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#1976d2")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#2196f3")}
         >
           <FaSync size={25} color="white" />
         </button>
+      </div>  
+      
+      
+      {/* Waveform */}
+      <div style={{
+        marginTop: "20px",
+        width: "300px",
+        height: "10px",
+        background: "#333",
+        margin: "20px auto",
+        borderRadius: "5px",
+      }}>
+        <div style={{
+          width: `${Math.min(volume, 100)}%`,
+          height: "100%",
+          background: "#4caf50",
+          borderRadius: "5px",
+          transition: "width 0.1s"
+        }} />
       </div>
+
 
       <div style={{ marginTop: 24, maxHeight: 300, overflowY: "auto", textAlign: "left", width: 900, marginInline: "auto" }}>
         {messages.map((m, i) => (<p key={i}>{m}</p>))}
