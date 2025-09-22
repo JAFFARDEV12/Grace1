@@ -60,7 +60,7 @@ export default function App() {
 
     } catch (e) {
       console.error("appendBuffer failed, re-queuing", e);
-      audioQueue.unshift(audioQueue.shift()!); // Put chunk back at front
+      audioQueue.unshift(nextChunk);
       appending = false;
     }
   };
