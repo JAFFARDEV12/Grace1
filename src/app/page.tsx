@@ -292,7 +292,7 @@ export default function App() {
           style={{
             background: listening ? "#e53935" : micReady ? "#24a148" : "#666",
             borderRadius: "50%",
-            padding: 20,
+            padding: 10,
             border: "none",
             cursor: micReady || listening ? "pointer" : "not-allowed",
             transition: "background 0.3s ease"
@@ -323,8 +323,8 @@ export default function App() {
       {/* Waveform */}
       <div style={{
         marginTop: "20px",
-        width: "300px",
-        height: "10px",
+        width: "250px",
+        height: "8px",
         background: "#333",
         margin: "20px auto",
         borderRadius: "5px",
