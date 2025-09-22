@@ -56,10 +56,8 @@ export default function App() {
       appending = true;
       const nextChunk = audioQueue.shift()!;
       sourceBufferRef.current.appendBuffer(nextChunk.buffer);
-      sourceBufferRef.current.addEventListener("updateend", () => {
-        appending = false;
-        processQueue();
-      }, { once: true });
+      appending = false;
+
     } catch (e) {
       console.error("appendBuffer failed, re-queuing", e);
       audioQueue.unshift(audioQueue.shift()!); // Put chunk back at front
@@ -135,7 +133,7 @@ export default function App() {
     source.connect(analyserRef.current);
 
     let isSpeaking = false;
-    let silenceTimeout: NodeJS.Timeout;
+    let silenceTimeout: ReturnType<typeof setTimeout>;
 
     vad(audioContextRef.current, stream, {
       onUpdate: (val: number) => {
