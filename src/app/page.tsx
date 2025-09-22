@@ -194,7 +194,7 @@ export default function App() {
     });
     vadStopRef.current = () => {
       try {
-        stopVad();
+        stopVad.disconnect();  // or stopVad.destroy()
         ctx.close();
       } catch {}
     };
