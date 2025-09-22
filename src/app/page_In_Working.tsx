@@ -52,17 +52,18 @@ export default function App() {
   const processQueue = () => {
     if (!sourceBufferRef.current || appending || sourceBufferRef.current.updating || audioQueue.length === 0) return;
 
-    try {
-      appending = true;
-      const nextChunk = audioQueue.shift()!;
-      sourceBufferRef.current.appendBuffer(nextChunk as unknown as BufferSource);
-      appending = false;
+  let nextChunk: Uint8Array | null = null;
+  try {
+    appending = true;
+    nextChunk = audioQueue.shift()!;
+    sourceBufferRef.current.appendBuffer(nextChunk as unknown as BufferSource);
+    appending = false;
+  } catch (e) {
+    console.error("appendBuffer failed, re-queuing", e);
+    if (nextChunk) audioQueue.unshift(nextChunk);
+    appending = false;
+  }
 
-    } catch (e) {
-      console.error("appendBuffer failed, re-queuing", e);
-      audioQueue.unshift(nextChunk);
-      appending = false;
-    }
   };
 
   const connectWebSocket = () => {
