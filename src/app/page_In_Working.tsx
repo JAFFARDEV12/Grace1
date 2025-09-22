@@ -55,7 +55,7 @@ export default function App() {
     try {
       appending = true;
       const nextChunk = audioQueue.shift()!;
-      sourceBufferRef.current.appendBuffer(nextChunk);
+      sourceBufferRef.current.appendBuffer(nextChunk as unknown as BufferSource);
       appending = false;
 
     } catch (e) {
